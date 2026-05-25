@@ -4,84 +4,74 @@ import os
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-search_urls = [
-    "https://www.jobs.nhs.uk/candidate/search/results?keyword=assistant+psychologist",
-    "https://www.jobs.nhs.uk/candidate/search/results?keyword=trainee+psychological+wellbeing+practitioner",
-    "https://www.jobs.nhs.uk/candidate/search/results?keyword=research+assistant+mental+health",
-    "https://www.jobs.nhs.uk/candidate/search/results?keyword=occupational+therapy+assistant",
-    "https://www.jobs.nhs.uk/candidate/search/results?keyword=educational+mental+health+practitioner",
-]
-
-allowed_locations = [
-    "london",
-    "greater london",
-    "oxford",
-    "cambridge",
-    "manchester",
-    "leeds",
-    "york",
-    "nottingham",
-    "exeter"
-]
-
-jobs_html = ""
+URL = "https://www.jobs.nhs.uk/candidate/search/results?keyword=assistant+psychologist"
 
 headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-for url in search_urls:
+response = requests.get(URL, headers=headers)
 
-    response = requests.get(url, headers=headers, timeout=30)
+print(response.status_code)
 
-    soup = BeautifulSoup(response.text, "html.parser")
+soup = BeautifulSoup(response.text, "html.parser")
 
-    jobs = soup.find_all("li", class_="search-result")
+print(soup.prettify()[:5000])
 
-    for job in jobs:
+jobs_html = ""
 
-        title_tag = job.find("h2")
+cards = soup.find_all("a")
 
-        if not title_tag:
-            continue
+for card in cards:
 
-        title = title_tag.get_text(strip=True)
+    text = card.get_text(" ", strip=True)
 
-        lower_title = title.lower()
+    lower = text.lower()
 
-        if "qualified pwp" in lower_title or "nurse" in lower_title:
-            continue
+    keywords = [
+        "assistant psychologist",
+        "trainee psychological wellbeing practitioner",
+        "research assistant",
+        "occupational therapy assistant",
+        "educational mental health practitioner",
+        "children wellbeing practitioner",
+        "mental health wellbeing practitioner"
+    ]
 
-        location_tag = job.find("li", class_="search-result__location")
+    locations = [
+        "london",
+        "greater london",
+        "oxford",
+        "cambridge",
+        "manchester",
+        "leeds",
+        "york",
+        "nottingham",
+        "exeter"
+    ]
 
-        location = ""
+    if any(k in lower for k in keywords):
 
-        if location_tag:
-            location = location_tag.get_text(strip=True)
+        if any(loc in lower for loc in locations):
 
-        location_lower = location.lower()
+            if "nurse" in lower:
+                continue
 
-        if not any(loc in location_lower for loc in allowed_locations):
-            continue
+            link = card.get("href")
 
-        link_tag = title_tag.find("a")
+            if link and not link.startswith("http"):
+                link = "https://www.jobs.nhs.uk" + link
 
-        link = ""
-
-        if link_tag:
-            link = "https://www.jobs.nhs.uk" + link_tag.get("href")
-
-        jobs_html += f"""
-        <p>
-        <b>{title}</b><br>
-        {location}<br>
-        <a href="{link}">View Job</a>
-        </p>
-        <hr>
-        """
+            jobs_html += f"""
+            <p>
+            <b>{text}</b><br>
+            <a href="{link}">View Job</a>
+            </p>
+            <hr>
+            """
 
 if jobs_html == "":
-    jobs_html = "<h2>No matching jobs found.</h2>"
+    jobs_html = "<h2>Still no jobs found.</h2>"
 
 email_data = {
     "from": "onboarding@resend.dev",
@@ -99,4 +89,4 @@ requests.post(
     json=email_data
 )
 
-print("Email sent successfully")
+print("EMAIL SENT")
