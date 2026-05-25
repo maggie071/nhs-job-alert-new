@@ -128,7 +128,7 @@ headers = {
 
 data = {
     "from": "onboarding@resend.dev",
-    "to": "你的Gmail@gmail.com",
+    "to": "margaretchai071@gmail.com",
     "subject": "🧠 New NHS Mental Health Jobs",
     "html": f"""
     <h1>New NHS Mental Health Jobs</h1>
