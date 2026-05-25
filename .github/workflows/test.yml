@@ -1,22 +1,32 @@
-name: Test Email
+name: NHS Mental Health Job Alert
 
 on:
+  schedule:
+    - cron: "*/30 * * * *"
+
   workflow_dispatch:
 
 jobs:
   send-email:
+
     runs-on: ubuntu-latest
 
     steps:
 
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - run: pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-      - run: python main.py
+      - name: Run script
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+
+        run: python main.py
