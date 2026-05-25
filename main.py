@@ -4,7 +4,7 @@ import os
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-URL = "https://www.jobs.nhs.uk/candidate/search/results?keyword=assistant+psychologist&location=London"
+URL = "https://findajob.dwp.gov.uk/search?q=assistant+psychologist&loc=86383"
 
 headers_browser = {
     "User-Agent": "Mozilla/5.0"
@@ -12,28 +12,26 @@ headers_browser = {
 
 response = requests.get(URL, headers=headers_browser)
 
-print(response.status_code)
-
 soup = BeautifulSoup(response.text, "html.parser")
 
-links = soup.find_all("a")
+jobs = soup.find_all("a")
 
 job_list = []
 
-for link in links:
+for job in jobs:
 
-    text = link.get_text(strip=True)
+    title = job.get_text(strip=True)
 
-    href = link.get("href")
+    href = job.get("href")
 
-    if href and "job_list" in href.lower():
+    if href:
 
-        if "assistant psychologist" in text.lower():
+        if "assistant psychologist" in title.lower():
 
-            full_link = "https://www.jobs.nhs.uk" + href
+            full_link = "https://findajob.dwp.gov.uk" + href
 
             job_list.append({
-                "title": text,
+                "title": title,
                 "link": full_link
             })
 
@@ -45,7 +43,7 @@ if len(job_list) == 0:
 
 else:
 
-    for job in job_list:
+    for job in job_list[:10]:
 
         html_content += f"""
         <p>
@@ -63,7 +61,7 @@ headers = {
 data = {
     "from": "onboarding@resend.dev",
     "to": "margaretchai071@gmail.com",
-    "subject": "🧠 New NHS Assistant Psychologist Jobs",
+    "subject": "🧠 New Assistant Psychologist Jobs",
     "html": html_content
 }
 
