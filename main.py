@@ -2,36 +2,47 @@ import requests
 from bs4 import BeautifulSoup
 import os
 
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+# RSS feed
+RSS_URL = "https://findajob.dwp.gov.uk/rss?keywords=psychology"
 
-RSS_URL = "https://findajob.dwp.gov.uk/rss?keywords=assistant+psychologist&location=London"
+# 获取 RSS 内容
+response = requests.get(
+    RSS_URL,
+    headers={
+        "User-Agent": "Mozilla/5.0"
+    },
+    timeout=30
+)
 
-response = requests.get(RSS_URL)
-
+# 解析 XML
 soup = BeautifulSoup(response.content, "xml")
 
 items = soup.find_all("item")
 
-html_content = "<h1>New Assistant Psychologist Jobs</h1>"
+# HTML 邮件内容
+html_content = """
+<h1>🧠 New Assistant Psychologist Jobs</h1>
+"""
 
+# 如果没有岗位
 if len(items) == 0:
-
     html_content += "<p>No jobs found.</p>"
 
-else:
+# 最多显示 10 个岗位
+for item in items[:10]:
 
-    for item in items[:10]:
+    title = item.title.text if item.title else "No title"
+    link = item.link.text if item.link else "#"
 
-        title = item.title.text
-        link = item.link.text
+    html_content += f"""
+    <div style="margin-bottom:20px;">
+        <h3>{title}</h3>
+        <a href="{link}">View Job</a>
+    </div>
+    """
 
-        html_content += f"""
-        <p>
-        <strong>{title}</strong><br>
-        <a href="{link}">{link}</a>
-        </p>
-        <hr>
-        """
+# Resend API
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
 headers = {
     "Authorization": f"Bearer {RESEND_API_KEY}",
@@ -40,16 +51,17 @@ headers = {
 
 data = {
     "from": "onboarding@resend.dev",
-    "to": "margaretchai071@gmail.com",
+    "to": os.getenv("TO_EMAIL"),
     "subject": "🧠 New Assistant Psychologist Jobs",
     "html": html_content
 }
 
-response = requests.post(
+# 发送邮件
+res = requests.post(
     "https://api.resend.com/emails",
     headers=headers,
     json=data
 )
 
-print(response.status_code)
-print(response.text)
+print(res.status_code)
+print(res.text)
