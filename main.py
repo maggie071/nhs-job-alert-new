@@ -11,7 +11,7 @@ response = requests.get(
     headers={
         "User-Agent": "Mozilla/5.0"
     },
-    timeout=30
+    timeout=120
 )
 
 # 解析 XML
