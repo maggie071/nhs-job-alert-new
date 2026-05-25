@@ -1,93 +1,88 @@
 import requests
 import os
 
+SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-KEYWORDS = [
-    "Assistant Psychologist",
-    "Trainee Psychological Wellbeing Practitioner",
-    "Research Assistant",
-    "Occupational Therapy Assistant",
-    "Educational Mental Health Practitioner",
-    "Mental Health Wellbeing Practitioner",
-    "Trainee Children's Wellbeing Practitioner"
+SEARCH_TERMS = [
+    "Assistant Psychologist NHS Band 3",
+    "Assistant Psychologist NHS Band 4",
+    "Trainee Psychological Wellbeing Practitioner NHS",
+    "Research Assistant Mental Health NHS",
+    "Occupational Therapy Assistant NHS",
+    "Educational Mental Health Practitioner NHS",
+    "Mental Health Wellbeing Practitioner NHS"
 ]
 
 LOCATIONS = [
-    "london",
-    "greater london",
-    "oxford",
-    "cambridge",
-    "manchester",
-    "leeds",
-    "york",
-    "nottingham",
-    "exeter"
+    "London",
+    "Oxford",
+    "Cambridge",
+    "Manchester",
+    "Leeds",
+    "York",
+    "Nottingham",
+    "Exeter"
 ]
 
 EXCLUDE = [
-    "qualified pwp only",
+    "qualified PWP only",
     "nurse only"
 ]
 
 all_jobs = []
 
-headers = {
-    "User-Agent": "Mozilla/5.0"
-}
+for term in SEARCH_TERMS:
 
-for keyword in KEYWORDS:
+    params = {
+        "engine": "google_jobs",
+        "q": term,
+        "api_key": SERPAPI_KEY
+    }
 
-    url = f"https://www.jobs.nhs.uk/api/job/search?keyword={keyword.replace(' ', '%20')}"
+    response = requests.get(
+        "https://serpapi.com/search",
+        params=params
+    )
 
-    try:
+    data = response.json()
 
-        response = requests.get(
-            url,
-            headers=headers,
-            timeout=30
-        )
+    jobs = data.get("jobs_results", [])
 
-        jobs = response.json().get("jobs", [])
+    for job in jobs:
 
-        for job in jobs:
+        title = job.get("title", "")
+        company = job.get("company_name", "")
+        location = job.get("location", "")
+        description = job.get("description", "")
+        link = job.get("related_links", [{}])[0].get("link", "")
 
-            title = job.get("jobTitle", "")
-            description = job.get("jobDescription", "")
-            location = job.get("locationName", "")
-            band = job.get("payScheme", "")
-            link = "https://www.jobs.nhs.uk/candidate/jobadvert/" + str(job.get("id", ""))
+        full_text = f"{title} {description} {location}".lower()
 
-            full_text = f"{title} {description} {location}".lower()
+        # location filter
+        if not any(loc.lower() in full_text for loc in LOCATIONS):
+            continue
 
-            # location filter
-            if not any(loc in full_text for loc in LOCATIONS):
-                continue
+        # exclude filter
+        if any(ex.lower() in full_text for ex in EXCLUDE):
+            continue
 
-            # exclude filter
-            if any(ex in full_text for ex in EXCLUDE):
-                continue
-
-            # band filter
-            if "band 3" not in full_text and "band 4" not in full_text:
-                continue
-
-            all_jobs.append({
-                "title": title,
-                "location": location,
-                "summary": description[:250],
-                "link": link
-            })
-
-    except Exception as e:
-        print(e)
+        all_jobs.append({
+            "title": title,
+            "company": company,
+            "location": location,
+            "description": description[:250],
+            "link": link
+        })
 
 # remove duplicates
 unique_jobs = []
 seen = set()
 
 for job in all_jobs:
+
     if job["link"] not in seen:
+
         unique_jobs.append(job)
         seen.add(job["link"])
 
@@ -98,8 +93,9 @@ for job in unique_jobs[:20]:
     html_jobs += f"""
     <div style="margin-bottom:25px;">
         <h3>{job['title']}</h3>
-        <p><strong>Location:</strong> {job['location']}</p>
-        <p>{job['summary']}</p>
+        <p><strong>{job['company']}</strong></p>
+        <p><strong>{job['location']}</strong></p>
+        <p>{job['description']}</p>
         <a href="{job['link']}">View Job</a>
     </div>
     <hr>
@@ -108,10 +104,6 @@ for job in unique_jobs[:20]:
 if not html_jobs:
     html_jobs = "<h2>No matching jobs found.</h2>"
 
-# SEND EMAIL
-
-url = "https://api.resend.com/emails"
-
 headers = {
     "Authorization": f"Bearer {RESEND_API_KEY}",
     "Content-Type": "application/json"
@@ -119,7 +111,7 @@ headers = {
 
 data = {
     "from": "onboarding@resend.dev",
-    "to": "margaretchai071@gmail.com",
+    "to": "maggieee1213@gmail.com",
     "subject": "🧠 NHS Mental Health Jobs Alert",
     "html": f"""
     <h1>New NHS Mental Health Jobs</h1>
@@ -128,7 +120,7 @@ data = {
 }
 
 response = requests.post(
-    url,
+    "https://api.resend.com/emails",
     headers=headers,
     json=data
 )
