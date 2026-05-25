@@ -1,17 +1,16 @@
 import requests
 import os
-from bs4 import BeautifulSoup
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-SEARCH_TERMS = [
-    "assistant psychologist",
-    "trainee psychological wellbeing practitioner",
-    "research assistant",
-    "occupational therapy assistant",
-    "educational mental health practitioner",
-    "mental health wellbeing practitioner",
-    "trainee children's wellbeing practitioner"
+KEYWORDS = [
+    "Assistant Psychologist",
+    "Trainee Psychological Wellbeing Practitioner",
+    "Research Assistant",
+    "Occupational Therapy Assistant",
+    "Educational Mental Health Practitioner",
+    "Mental Health Wellbeing Practitioner",
+    "Trainee Children's Wellbeing Practitioner"
 ]
 
 LOCATIONS = [
@@ -37,9 +36,9 @@ headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-for term in SEARCH_TERMS:
+for keyword in KEYWORDS:
 
-    url = f"https://www.jobs.nhs.uk/candidate/search/results?keyword={term.replace(' ', '+')}"
+    url = f"https://www.jobs.nhs.uk/api/job/search?keyword={keyword.replace(' ', '%20')}"
 
     try:
 
@@ -49,46 +48,35 @@ for term in SEARCH_TERMS:
             timeout=30
         )
 
-        soup = BeautifulSoup(response.text, "html.parser")
+        jobs = response.json().get("jobs", [])
 
-        cards = soup.find_all("li", class_="search-result")
+        for job in jobs:
 
-        for card in cards:
+            title = job.get("jobTitle", "")
+            description = job.get("jobDescription", "")
+            location = job.get("locationName", "")
+            band = job.get("payScheme", "")
+            link = "https://www.jobs.nhs.uk/candidate/jobadvert/" + str(job.get("id", ""))
 
-            text = card.get_text(" ", strip=True).lower()
+            full_text = f"{title} {description} {location}".lower()
 
             # location filter
-            if not any(location in text for location in LOCATIONS):
+            if not any(loc in full_text for loc in LOCATIONS):
                 continue
 
             # exclude filter
-            if any(word in text for word in EXCLUDE):
+            if any(ex in full_text for ex in EXCLUDE):
                 continue
 
             # band filter
-            if "band 3" not in text and "band 4" not in text:
+            if "band 3" not in full_text and "band 4" not in full_text:
                 continue
-
-            title_tag = card.find("h2")
-
-            if not title_tag:
-                continue
-
-            title = title_tag.get_text(strip=True)
-
-            link_tag = title_tag.find("a")
-
-            if link_tag:
-                link = "https://www.jobs.nhs.uk" + link_tag["href"]
-            else:
-                link = ""
-
-            summary = text[:300]
 
             all_jobs.append({
                 "title": title,
-                "link": link,
-                "summary": summary
+                "location": location,
+                "summary": description[:250],
+                "link": link
             })
 
     except Exception as e:
@@ -110,6 +98,7 @@ for job in unique_jobs[:20]:
     html_jobs += f"""
     <div style="margin-bottom:25px;">
         <h3>{job['title']}</h3>
+        <p><strong>Location:</strong> {job['location']}</p>
         <p>{job['summary']}</p>
         <a href="{job['link']}">View Job</a>
     </div>
@@ -130,7 +119,7 @@ headers = {
 
 data = {
     "from": "onboarding@resend.dev",
-    "to": "margaretchai071@gmail.com",
+    "to": "maggieee1213@gmail.com",
     "subject": "🧠 NHS Mental Health Jobs Alert",
     "html": f"""
     <h1>New NHS Mental Health Jobs</h1>
