@@ -2,62 +2,58 @@ import requests
 from bs4 import BeautifulSoup
 import os
 
-# =========================
-# RESEND CONFIG
-# =========================
-
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-
-# =========================
-# SEARCH URL
-# =========================
 
 URL = "https://www.jobs.nhs.uk/candidate/search/results?keyword=assistant+psychologist&location=London"
 
-# =========================
-# GET NHS JOBS
-# =========================
+headers_browser = {
+    "User-Agent": "Mozilla/5.0"
+}
 
-response = requests.get(URL)
+response = requests.get(URL, headers=headers_browser)
+
+print(response.status_code)
 
 soup = BeautifulSoup(response.text, "html.parser")
 
-jobs = soup.find_all("a", class_="nhsuk-link")
+links = soup.find_all("a")
 
 job_list = []
 
-for job in jobs[:10]:
+for link in links:
 
-    title = job.get_text(strip=True)
+    text = link.get_text(strip=True)
 
-    link = "https://www.jobs.nhs.uk" + job.get("href")
+    href = link.get("href")
 
-    if "assistant psychologist" in title.lower():
+    if href and "job_list" in href.lower():
 
-        job_list.append({
-            "title": title,
-            "link": link
-        })
+        if "assistant psychologist" in text.lower():
 
-# =========================
-# BUILD EMAIL
-# =========================
+            full_link = "https://www.jobs.nhs.uk" + href
+
+            job_list.append({
+                "title": text,
+                "link": full_link
+            })
 
 html_content = "<h1>New NHS Jobs Found</h1>"
 
-for job in job_list:
+if len(job_list) == 0:
 
-    html_content += f"""
-    <p>
-    <strong>{job['title']}</strong><br>
-    <a href="{job['link']}">{job['link']}</a>
-    </p>
-    <hr>
-    """
+    html_content += "<p>No jobs found.</p>"
 
-# =========================
-# SEND EMAIL
-# =========================
+else:
+
+    for job in job_list:
+
+        html_content += f"""
+        <p>
+        <strong>{job['title']}</strong><br>
+        <a href="{job['link']}">{job['link']}</a>
+        </p>
+        <hr>
+        """
 
 headers = {
     "Authorization": f"Bearer {RESEND_API_KEY}",
