@@ -1,21 +1,22 @@
 import requests
+from bs4 import BeautifulSoup
 import os
 
 SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-SEARCH_TERMS = [
-    "Assistant Psychologist NHS Band 3",
-    "Assistant Psychologist NHS Band 4",
+keywords = [
+    "Assistant Psychologist NHS",
     "Trainee Psychological Wellbeing Practitioner NHS",
     "Research Assistant Mental Health NHS",
     "Occupational Therapy Assistant NHS",
     "Educational Mental Health Practitioner NHS",
-    "Mental Health Wellbeing Practitioner NHS"
+    "Children Wellbeing Practitioner NHS"
 ]
 
-LOCATIONS = [
+locations = [
     "London",
+    "Greater London",
     "Oxford",
     "Cambridge",
     "Manchester",
@@ -25,105 +26,73 @@ LOCATIONS = [
     "Exeter"
 ]
 
-EXCLUDE = [
-    "qualified PWP only",
-    "nurse only"
-]
-
 all_jobs = []
 
-for term in SEARCH_TERMS:
+for keyword in keywords:
+    for location in locations:
 
-    params = {
-        "engine": "google_jobs",
-        "q": term,
-        "api_key": SERPAPI_KEY
-    }
+        params = {
+            "engine": "google_jobs",
+            "q": f"{keyword} {location}",
+            "api_key": SERPAPI_KEY
+        }
 
-    response = requests.get(
-        "https://serpapi.com/search",
-        params=params
-    )
+        response = requests.get(
+            "https://serpapi.com/search",
+            params=params,
+            timeout=30
+        )
 
-    data = response.json()
+        data = response.json()
 
-    jobs = data.get("jobs_results", [])
+        jobs = data.get("jobs_results", [])
 
-    for job in jobs:
+        for job in jobs:
 
-        title = job.get("title", "")
-        company = job.get("company_name", "")
-        location = job.get("location", "")
-        description = job.get("description", "")
-        link = job.get("related_links", [{}])[0].get("link", "")
+            title = job.get("title", "")
+            company = job.get("company_name", "")
+            loc = job.get("location", "")
+            link = job.get("related_links", [{}])[0].get("link", "")
 
-        full_text = f"{title} {description} {location}".lower()
+            lower_title = title.lower()
 
-        # location filter
-        if not any(loc.lower() in full_text for loc in LOCATIONS):
-            continue
+            if (
+                "qualified pwp" in lower_title
+                or "nurse" in lower_title
+            ):
+                continue
 
-        # exclude filter
-        if any(ex.lower() in full_text for ex in EXCLUDE):
-            continue
+            all_jobs.append(
+                f"""
+                <p>
+                <b>{title}</b><br>
+                {company}<br>
+                {loc}<br>
+                <a href="{link}">View Job</a>
+                </p>
+                <hr>
+                """
+            )
 
-        all_jobs.append({
-            "title": title,
-            "company": company,
-            "location": location,
-            "description": description[:250],
-            "link": link
-        })
+if not all_jobs:
+    html_content = "<h1>No matching jobs found.</h1>"
+else:
+    html_content = "".join(all_jobs[:30])
 
-# remove duplicates
-unique_jobs = []
-seen = set()
-
-for job in all_jobs:
-
-    if job["link"] not in seen:
-
-        unique_jobs.append(job)
-        seen.add(job["link"])
-
-html_jobs = ""
-
-for job in unique_jobs[:20]:
-
-    html_jobs += f"""
-    <div style="margin-bottom:25px;">
-        <h3>{job['title']}</h3>
-        <p><strong>{job['company']}</strong></p>
-        <p><strong>{job['location']}</strong></p>
-        <p>{job['description']}</p>
-        <a href="{job['link']}">View Job</a>
-    </div>
-    <hr>
-    """
-
-if not html_jobs:
-    html_jobs = "<h2>No matching jobs found.</h2>"
-
-headers = {
-    "Authorization": f"Bearer {RESEND_API_KEY}",
-    "Content-Type": "application/json"
-}
-
-data = {
+email_data = {
     "from": "onboarding@resend.dev",
-    "to": "margaretchai071@gmail.com",
-    "subject": "🧠 NHS Mental Health Jobs Alert",
-    "html": f"""
-    <h1>New NHS Mental Health Jobs</h1>
-    {html_jobs}
-    """
+    "to": "maggieee1213@gmail.com",
+    "subject": "🧠 New NHS Mental Health Jobs",
+    "html": html_content
 }
 
-response = requests.post(
+requests.post(
     "https://api.resend.com/emails",
-    headers=headers,
-    json=data
+    headers={
+        "Authorization": f"Bearer {RESEND_API_KEY}",
+        "Content-Type": "application/json"
+    },
+    json=email_data
 )
 
-print(response.status_code)
-print(response.text)
+print("Email sent successfully")
