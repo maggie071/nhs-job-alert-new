@@ -4,23 +4,41 @@ import os
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-URL = "https://www.jobs.nhs.uk/candidate/search/results?keyword=assistant+psychologist"
+URL = "https://findajob.dwp.gov.uk/search?q=psychology"
 
 headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-response = requests.get(URL, headers=headers)
-
-print(response.status_code)
+response = requests.get(URL, headers=headers, timeout=30)
 
 soup = BeautifulSoup(response.text, "html.parser")
 
-print(soup.prettify()[:5000])
-
 jobs_html = ""
 
-cards = soup.find_all("a")
+keywords = [
+    "assistant psychologist",
+    "psychological wellbeing practitioner",
+    "research assistant",
+    "occupational therapy assistant",
+    "educational mental health practitioner",
+    "children wellbeing practitioner",
+    "mental health wellbeing practitioner"
+]
+
+locations = [
+    "london",
+    "greater london",
+    "oxford",
+    "cambridge",
+    "manchester",
+    "leeds",
+    "york",
+    "nottingham",
+    "exeter"
+]
+
+cards = soup.find_all("article")
 
 for card in cards:
 
@@ -28,39 +46,27 @@ for card in cards:
 
     lower = text.lower()
 
-    keywords = [
-        "assistant psychologist",
-        "trainee psychological wellbeing practitioner",
-        "research assistant",
-        "occupational therapy assistant",
-        "educational mental health practitioner",
-        "children wellbeing practitioner",
-        "mental health wellbeing practitioner"
-    ]
-
-    locations = [
-        "london",
-        "greater london",
-        "oxford",
-        "cambridge",
-        "manchester",
-        "leeds",
-        "york",
-        "nottingham",
-        "exeter"
-    ]
-
     if any(k in lower for k in keywords):
 
         if any(loc in lower for loc in locations):
 
+            if "qualified pwp" in lower:
+                continue
+
             if "nurse" in lower:
                 continue
 
-            link = card.get("href")
+            link_tag = card.find("a")
 
-            if link and not link.startswith("http"):
-                link = "https://www.jobs.nhs.uk" + link
+            link = ""
+
+            if link_tag:
+                href = link_tag.get("href")
+
+                if href.startswith("/"):
+                    link = "https://findajob.dwp.gov.uk" + href
+                else:
+                    link = href
 
             jobs_html += f"""
             <p>
@@ -71,7 +77,7 @@ for card in cards:
             """
 
 if jobs_html == "":
-    jobs_html = "<h2>Still no jobs found.</h2>"
+    jobs_html = "<h2>No matching jobs found.</h2>"
 
 email_data = {
     "from": "onboarding@resend.dev",
