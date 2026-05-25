@@ -2,88 +2,92 @@ import requests
 from bs4 import BeautifulSoup
 import os
 
-SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-keywords = [
-    "Assistant Psychologist NHS",
-    "Trainee Psychological Wellbeing Practitioner NHS",
-    "Research Assistant Mental Health NHS",
-    "Occupational Therapy Assistant NHS",
-    "Educational Mental Health Practitioner NHS",
-    "Children Wellbeing Practitioner NHS"
+search_urls = [
+    "https://www.jobs.nhs.uk/candidate/search/results?keyword=assistant+psychologist",
+    "https://www.jobs.nhs.uk/candidate/search/results?keyword=trainee+psychological+wellbeing+practitioner",
+    "https://www.jobs.nhs.uk/candidate/search/results?keyword=research+assistant+mental+health",
+    "https://www.jobs.nhs.uk/candidate/search/results?keyword=occupational+therapy+assistant",
+    "https://www.jobs.nhs.uk/candidate/search/results?keyword=educational+mental+health+practitioner",
 ]
 
-locations = [
-    "London",
-    "Greater London",
-    "Oxford",
-    "Cambridge",
-    "Manchester",
-    "Leeds",
-    "York",
-    "Nottingham",
-    "Exeter"
+allowed_locations = [
+    "london",
+    "greater london",
+    "oxford",
+    "cambridge",
+    "manchester",
+    "leeds",
+    "york",
+    "nottingham",
+    "exeter"
 ]
 
-all_jobs = []
+jobs_html = ""
 
-for keyword in keywords:
-    for location in locations:
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
 
-        params = {
-            "engine": "google_jobs",
-            "q": f"{keyword} {location}",
-            "api_key": SERPAPI_KEY
-        }
+for url in search_urls:
 
-        response = requests.get(
-            "https://serpapi.com/search",
-            params=params,
-            timeout=30
-        )
+    response = requests.get(url, headers=headers, timeout=30)
 
-        data = response.json()
+    soup = BeautifulSoup(response.text, "html.parser")
 
-        jobs = data.get("jobs_results", [])
+    jobs = soup.find_all("li", class_="search-result")
 
-        for job in jobs:
+    for job in jobs:
 
-            title = job.get("title", "")
-            company = job.get("company_name", "")
-            loc = job.get("location", "")
-            link = job.get("related_links", [{}])[0].get("link", "")
+        title_tag = job.find("h2")
 
-            lower_title = title.lower()
+        if not title_tag:
+            continue
 
-            if (
-                "qualified pwp" in lower_title
-                or "nurse" in lower_title
-            ):
-                continue
+        title = title_tag.get_text(strip=True)
 
-            all_jobs.append(
-                f"""
-                <p>
-                <b>{title}</b><br>
-                {company}<br>
-                {loc}<br>
-                <a href="{link}">View Job</a>
-                </p>
-                <hr>
-                """
-            )
+        lower_title = title.lower()
 
-if not all_jobs:
-    html_content = "<h1>No matching jobs found.</h1>"
-else:
-    html_content = "".join(all_jobs[:30])
+        if "qualified pwp" in lower_title or "nurse" in lower_title:
+            continue
+
+        location_tag = job.find("li", class_="search-result__location")
+
+        location = ""
+
+        if location_tag:
+            location = location_tag.get_text(strip=True)
+
+        location_lower = location.lower()
+
+        if not any(loc in location_lower for loc in allowed_locations):
+            continue
+
+        link_tag = title_tag.find("a")
+
+        link = ""
+
+        if link_tag:
+            link = "https://www.jobs.nhs.uk" + link_tag.get("href")
+
+        jobs_html += f"""
+        <p>
+        <b>{title}</b><br>
+        {location}<br>
+        <a href="{link}">View Job</a>
+        </p>
+        <hr>
+        """
+
+if jobs_html == "":
+    jobs_html = "<h2>No matching jobs found.</h2>"
 
 email_data = {
     "from": "onboarding@resend.dev",
     "to": "maggieee1213@gmail.com",
     "subject": "🧠 New NHS Mental Health Jobs",
-    "html": html_content
+    "html": jobs_html
 }
 
 requests.post(
