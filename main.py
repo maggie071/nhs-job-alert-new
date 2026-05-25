@@ -1,48 +1,41 @@
 import requests
-from bs4 import BeautifulSoup
 import os
+from bs4 import BeautifulSoup
 
-# RSS feed
-RSS_URL = "https://findajob.dwp.gov.uk/rss?keywords=psychology"
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-# 获取 RSS 内容
+RSS_URL = "https://www.jobs.nhs.uk/api/search?keyword=assistant+psychologist&location=London&distance=10&format=rss"
+
 response = requests.get(
     RSS_URL,
     headers={
         "User-Agent": "Mozilla/5.0"
     },
-    timeout=120
+    timeout=30
 )
 
-# 解析 XML
 soup = BeautifulSoup(response.content, "xml")
 
-items = soup.find_all("item")
+items = soup.find_all("item")[:10]
 
-# HTML 邮件内容
-html_content = """
-<h1>🧠 New Assistant Psychologist Jobs</h1>
-"""
+job_list = ""
 
-# 如果没有岗位
-if len(items) == 0:
-    html_content += "<p>No jobs found.</p>"
+for item in items:
+    title = item.title.text
+    link = item.link.text
 
-# 最多显示 10 个岗位
-for item in items[:10]:
-
-    title = item.title.text if item.title else "No title"
-    link = item.link.text if item.link else "#"
-
-    html_content += f"""
-    <div style="margin-bottom:20px;">
-        <h3>{title}</h3>
+    job_list += f"""
+    <p>
+        <strong>{title}</strong><br>
         <a href="{link}">View Job</a>
-    </div>
+    </p>
+    <hr>
     """
 
-# Resend API
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+if not job_list:
+    job_list = "<p>No jobs found.</p>"
+
+url = "https://api.resend.com/emails"
 
 headers = {
     "Authorization": f"Bearer {RESEND_API_KEY}",
@@ -51,17 +44,19 @@ headers = {
 
 data = {
     "from": "onboarding@resend.dev",
-    "to": os.getenv("TO_EMAIL"),
+    "to": "你的邮箱@gmail.com",
     "subject": "🧠 New Assistant Psychologist Jobs",
-    "html": html_content
+    "html": f"""
+    <h1>New Assistant Psychologist Jobs</h1>
+    {job_list}
+    """
 }
 
-# 发送邮件
-res = requests.post(
-    "https://api.resend.com/emails",
+response = requests.post(
+    url,
     headers=headers,
     json=data
 )
 
-print(res.status_code)
-print(res.text)
+print(response.status_code)
+print(response.text)
