@@ -85,7 +85,7 @@ if jobs_html == "":
 
 email_data = {
     "from": "onboarding@resend.dev",
-    "to": "maggieee1213@gmail.com",
+    "to": "margaretchai071@gmail.com",
     "subject": "🧠 New NHS Mental Health Jobs",
     "html": jobs_html
 }
